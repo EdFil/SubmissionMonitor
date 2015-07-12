@@ -1,20 +1,14 @@
 package manager;
 
-import javafx.util.Pair;
 import log.Log;
-import org.apache.commons.net.PrintCommandListener;
-import org.apache.commons.net.ftp.FTPFile;
+import org.apache.commons.net.ftp.FTP;
 import org.apache.commons.net.ftp.FTPReply;
 import org.apache.commons.net.ftp.FTPSClient;
 
 import java.io.*;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.concurrent.PriorityBlockingQueue;
-import java.util.function.Consumer;
 
 /**
  * Class that deals with the upload requests
@@ -77,7 +71,7 @@ public class FTPManager implements Runnable {
             File file = new File("filesQueue.dat");
             if (file.exists()) {
                 ObjectInputStream ois = new ObjectInputStream(new FileInputStream(file));
-                mFilesToUpload = (PriorityBlockingQueue) ois.readObject();
+                mFilesToUpload = (Queue<FileToSendInfo>) ois.readObject();
                 ois.close();
             }
         } catch (Exception e) {
@@ -152,7 +146,7 @@ public class FTPManager implements Runnable {
             }
 
 //            mFTPSClient.setControlKeepAliveTimeout(1000);
-            mFTPSClient.setFileType(mFTPSClient.BINARY_FILE_TYPE);
+            mFTPSClient.setFileType(FTP.BINARY_FILE_TYPE);
             mFTPSClient.enterLocalPassiveMode();
             mFTPSClient.setControlKeepAliveTimeout(300); // 5min
 
@@ -183,7 +177,7 @@ public class FTPManager implements Runnable {
             }
 
 
-        } catch (NoSuchElementException e) {
+        } catch (NoSuchElementException ignored) {
 
         } catch (Exception e) {
             Log.e(TAG, e.getMessage());

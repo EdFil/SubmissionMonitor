@@ -1,6 +1,3 @@
-/**
- * Created by edgar on 7/10/15.
- */
 import log.Log;
 import manager.FTPManager;
 
@@ -46,7 +43,7 @@ public class WatchDir {
     public WatchDir(Path dir, boolean recursive) throws IOException {
         mRootDir = dir;
         mWatcher = FileSystems.getDefault().newWatchService();
-        mKeys = new HashMap<WatchKey, Path>();
+        mKeys = new HashMap<>();
         isRecursive = recursive;
 
         if (recursive) {

@@ -3,16 +3,10 @@ package manager;
 import log.Log;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.PropertiesConfiguration;
-import org.apache.commons.configuration.event.ConfigurationEvent;
-import org.apache.commons.configuration.event.ConfigurationListener;
 
-import javax.xml.bind.Marshaller;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
 
 import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 
@@ -70,35 +64,28 @@ public class ConfigurationManager {
      * Creates a file watcher for the configuration file
      */
     private void setupFileWatcher() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                final Path path = Paths.get(System.getProperty("user.dir"));
-                try (final WatchService watchService = FileSystems.getDefault().newWatchService()) {
-                    final WatchKey watchKey = path.register(watchService, ENTRY_CREATE);
-                    while (true) {
-                        final WatchKey wk = watchService.take();
-                        for (WatchEvent<?> event : wk.pollEvents()) {
-                            final Path changed = (Path) event.context();
-                            if (changed.endsWith("test.txt")) {
-                                mConfiguration.refresh();
-                                Log.d(TAG, "Reloaded 'test.txt'.");
-                                if(mOnReload != null)
-                                    mOnReload.run();
-                            }
-                        }
-                        boolean valid = wk.reset();
-                        if (!valid) {
-                            Log.d(TAG, "Key has been unregistered");
+        new Thread(() -> {
+            final Path path = Paths.get(System.getProperty("user.dir"));
+            try (final WatchService watchService = FileSystems.getDefault().newWatchService()) {
+                path.register(watchService, ENTRY_CREATE);
+                while (!Thread.interrupted()) {
+                    final WatchKey wk = watchService.take();
+                    for (WatchEvent<?> event : wk.pollEvents()) {
+                        final Path changed = (Path) event.context();
+                        if (changed.endsWith("test.txt")) {
+                            mConfiguration.refresh();
+                            Log.d(TAG, "Reloaded 'test.txt'.");
+                            if(mOnReload != null)
+                                mOnReload.run();
                         }
                     }
-                } catch (InterruptedException e) {
-                    Log.e(TAG, e.getMessage());
-                } catch (IOException e) {
-                    Log.e(TAG, e.getMessage());
-                } catch (ConfigurationException e) {
-                    e.printStackTrace();
+                    boolean valid = wk.reset();
+                    if (!valid) {
+                        Log.d(TAG, "Key has been unregistered");
+                    }
                 }
+            } catch (Exception e) {
+                Log.e(TAG, e.getMessage());
             }
         }).start();
     }
@@ -129,11 +116,12 @@ public class ConfigurationManager {
      * @throws IOException
      * @throws ConfigurationException
      */
-    private void createConfigurationFile(File file) throws IOException, ConfigurationException {
-        file.createNewFile();
+    private void createConfigurationFile(File file) throws Exception {
         Log.e("Configuration file '" + file + "' was not found.");
         Log.e(TAG, "Creating a new one and exiting...");
-        file.createNewFile();
+        if(file.createNewFile()) {
+            throw new Exception("Could not create file");
+        }
         mConfiguration = new PropertiesConfiguration();
         mConfiguration.setHeader("Config file for Submission Watcher");
         for(String property : CONFIGURATION_OPTIONS)
