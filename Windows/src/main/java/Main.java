@@ -3,8 +3,19 @@
  */
 public class Main {
 
-    public static void main(String[] args){
-        System.out.println("Windows");
+    /**
+     * Print how to run program and exit
+     */
+    static void usage() {
+        System.err.println("usage: java Monitor [-r] dir");
+        System.exit(-1);
+    }
+
+    /**
+     * @param args
+     */
+    public static void main(String[] args) {
+
     }
 
 }
