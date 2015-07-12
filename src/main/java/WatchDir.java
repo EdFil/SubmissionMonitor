@@ -1,24 +1,14 @@
 import log.Log;
-import manager.FTPManager;
-
-import static java.nio.file.LinkOption.NOFOLLOW_LINKS;
-import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
-import static java.nio.file.StandardWatchEventKinds.OVERFLOW;
+import manager.OnEventReceived;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.FileSystems;
-import java.nio.file.FileVisitResult;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.SimpleFileVisitor;
-import java.nio.file.WatchEvent;
-import java.nio.file.WatchEvent.Kind;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.Map;
+
+import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 
 
 
@@ -31,6 +21,7 @@ public class WatchDir {
     private final Map<WatchKey, Path> mKeys;
     private final boolean isRecursive;
     private boolean debug = false;
+    private OnEventReceived mEventReceivedDelegate;
 
     @SuppressWarnings("unchecked")
     static <T> WatchEvent<T> cast(WatchEvent<?> event) {
@@ -40,11 +31,12 @@ public class WatchDir {
     /**
      * Creates a WatchService and registers the given directory
      */
-    public WatchDir(Path dir, boolean recursive) throws IOException {
+    public WatchDir(Path dir, boolean recursive, OnEventReceived eventReceived) throws IOException {
         mRootDir = dir;
         mWatcher = FileSystems.getDefault().newWatchService();
         mKeys = new HashMap<>();
         isRecursive = recursive;
+        mEventReceivedDelegate = (eventReceived != null) ? eventReceived : new OnEventReceived();
 
         if (recursive) {
             registerAll(dir);
@@ -111,44 +103,18 @@ public class WatchDir {
                 continue;
             }
 
-            for (WatchEvent<?> event : key.pollEvents()) {
-                Kind<?> kind = event.kind();
+            for(WatchEvent<?> wk : key.pollEvents()){
+                Path path = Paths.get(dir.toString(), wk.context().toString());
+                WatchEvent.Kind<Path> kind = (WatchEvent.Kind<Path>) wk.kind();
 
-                // TODO: Handle OVERFLOW maybe?
-                if (kind == OVERFLOW) {
-                    continue;
-                }
-
-                // Context for directory entry event is the file name of entry
-                WatchEvent<Path> ev = cast(event);
-                Path name = ev.context();
-                Path child = dir.resolve(name);
-
-                if(kind.equals(ENTRY_CREATE) && Files.isRegularFile(child, NOFOLLOW_LINKS)){
-                    File file = child.toFile();
-                    if(!file.getName().startsWith(".")) {
-                        Log.d(TAG, "NEW FILE " + file);
-                        FTPManager.getInstance().sendFile(file, mRootDir.relativize(child).toString());
-                    }
-                }
-
-                // print out event
-                // System.out.format("%s: %s\n", event.kind().name(), child);
-
-                // if directory is created, and watching recursively, then
-                // register it and its sub-directories
+                // Deal with folder creation
                 if (isRecursive && (kind == ENTRY_CREATE)) {
-                    try {
-                        if (Files.isDirectory(child, NOFOLLOW_LINKS)) {
-                            registerAll(child);
-                        } else {
-                            File file = child.toFile();
-                            if(!file.getName().contains(".")) {
-                                Log.d(TAG, "Sending " + file.getName());
-                            }
-                        }
-                    } catch (IOException x) { /* Empty */ }
+                    Path child = dir.resolve(path);
+                    if (Files.isDirectory(child, LinkOption.NOFOLLOW_LINKS))
+                        registerAll(child);
                 }
+
+                mEventReceivedDelegate.execute(kind, path);
             }
 
             // reset key and remove from set if directory no longer accessible

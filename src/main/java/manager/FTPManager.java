@@ -146,8 +146,6 @@ public class FTPManager implements Runnable {
             }
 
 //            mFTPSClient.setControlKeepAliveTimeout(1000);
-            mFTPSClient.setFileType(FTP.BINARY_FILE_TYPE);
-            mFTPSClient.enterLocalPassiveMode();
             mFTPSClient.setControlKeepAliveTimeout(300); // 5min
 
             // Iterate over the queue and try to send all files
@@ -166,6 +164,8 @@ public class FTPManager implements Runnable {
                     InputStream inputStream = new FileInputStream(file);
                     Log.d(TAG, "Sending - " + file.getAbsolutePath());
 
+                    mFTPSClient.setFileType(FTP.BINARY_FILE_TYPE);
+                    mFTPSClient.enterLocalPassiveMode();
                     if (!mFTPSClient.storeFile(fileToSendInfo.mRelativePath, inputStream))
                         throw new Exception("Could not store file \"" + file + "\".");
 
@@ -208,6 +208,9 @@ public class FTPManager implements Runnable {
         // For loop cycles every sub path of the file path.
         for(int i = 0; i < pathTokens.length - 1; i++) {
 
+            if(pathTokens[i].contains("/") || pathTokens[i].isEmpty())
+                continue;
+
             // If the folder does not exist..
             if(!mFTPSClient.changeWorkingDirectory(pathTokens[i])){
                 currentDir += "/" + pathTokens[i];
@@ -215,7 +218,7 @@ public class FTPManager implements Runnable {
 
                 // Create the folder
                 if(!mFTPSClient.makeDirectory(pathTokens[i])) {
-                    Log.e(TAG, "Could not make dir '" + currentDir + "'.");
+                        Log.e(TAG, "Could not make dir '" + currentDir + "'.");
                     return false;
                 }
 

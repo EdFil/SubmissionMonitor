@@ -11,11 +11,16 @@ import java.nio.file.*;
 import static java.nio.file.StandardWatchEventKinds.ENTRY_CREATE;
 
 /**
- * Created by edgar on 7/10/15.
+ * A singleton manager that loads and manages the configuration file.
+ *
+ * @author Edgar Santos <edfil221@gmail.com>
  */
 public class ConfigurationManager {
 
     private static final String TAG = ConfigurationManager.class.getSimpleName();
+
+
+    private static final String CONFIG_FILE = "ftp.properties";
 
     /**
      * All the valid options for the configuration
@@ -29,34 +34,50 @@ public class ConfigurationManager {
      */
     private PropertiesConfiguration mConfiguration;
 
+    private File mConfigFile;
+
+    /**
+     * Is run after the configuration file is reloaded.
+     */
     private Runnable mOnReload;
 
+    /**
+     * Sets the onReload delegate function.
+     *
+     * @param runnable the delegate that is going to be ran after the config reload
+     */
     public void setOnConfigurationReload(Runnable runnable) {
         mOnReload = runnable;
     }
 
     /** Function that loads the configuration file
      *
-     * @param filePath where the file is located.
      * @return true if the configuration was loaded, false otherwise.
      */
     public boolean load(String filePath){
         mConfiguration = new PropertiesConfiguration();
-        File file = new File(filePath);
+
+        mConfigFile = new File(filePath);
         try {
-            if (!file.exists()) {
-                createConfigurationFile(file);
+
+            // If file does not exist
+            if (!mConfigFile.exists()) {
+                createConfigurationFile(mConfigFile);
                 return false;
             }
-            mConfiguration.load(filePath);
+            mConfiguration.load(mConfigFile);
+
+            // If the config file is valid
             if(!isValidConfigurationFile(mConfiguration))
                 return false;
+
+            // Watch the config file for changes
             setupFileWatcher();
         } catch (Exception e) {
             Log.e(TAG, e.getMessage());
             return false;
         }
-        Log.d(TAG, "Loaded '" + file + "'.");
+        Log.d(TAG, "Loaded '" + mConfigFile + "'.");
         return true;
     }
 
@@ -72,9 +93,9 @@ public class ConfigurationManager {
                     final WatchKey wk = watchService.take();
                     for (WatchEvent<?> event : wk.pollEvents()) {
                         final Path changed = (Path) event.context();
-                        if (changed.endsWith("test.txt")) {
+                        if (changed.toFile().equals(mConfigFile)) {
                             mConfiguration.refresh();
-                            Log.d(TAG, "Reloaded 'test.txt'.");
+                            Log.d(TAG, "Reloaded '" + CONFIG_FILE + "'.");
                             if(mOnReload != null)
                                 mOnReload.run();
                         }
@@ -119,7 +140,7 @@ public class ConfigurationManager {
     private void createConfigurationFile(File file) throws Exception {
         Log.e("Configuration file '" + file + "' was not found.");
         Log.e(TAG, "Creating a new one and exiting...");
-        if(file.createNewFile()) {
+        if(!file.exists() && !file.createNewFile()) {
             throw new Exception("Could not create file");
         }
         mConfiguration = new PropertiesConfiguration();
