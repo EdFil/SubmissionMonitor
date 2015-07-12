@@ -1,5 +1,7 @@
 import log.Log;
 import manager.ConfigurationManager;
+import manager.FTPManager;
+import org.apache.commons.configuration.event.ConfigurationEvent;
 import org.apache.commons.configuration.event.ConfigurationListener;
 
 import java.io.File;
@@ -22,7 +24,7 @@ public class Main {
         System.exit(-1);
     }
 
-    private static void printCommandsHelp(){
+    private static void printCommandsHelp() {
         System.out.println("Commands:");
         System.out.println("h - help");
         System.out.println("r - refresh");
@@ -61,7 +63,19 @@ public class Main {
 
         Path dir = Paths.get(args[dirArg]);
 
+        // Load and initialize the FTPManager
         ConfigurationManager.getInstance().load("test.txt");
+        FTPManager.init();
+
+        // Every time the configuration changes, run the FTPManager
+        ConfigurationManager.getInstance().setOnConfigurationReload(new Runnable() {
+            @Override
+            public void run() {
+                FTPManager.getInstance().startThread();
+            }
+        });
+
+        // Run the main directory watcher
         WatchDir watchDir = new WatchDir(dir, true);
         watchDir.processEvents();
     }

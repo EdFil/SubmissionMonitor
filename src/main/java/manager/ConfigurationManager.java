@@ -3,7 +3,10 @@ package manager;
 import log.Log;
 import org.apache.commons.configuration.ConfigurationException;
 import org.apache.commons.configuration.PropertiesConfiguration;
+import org.apache.commons.configuration.event.ConfigurationEvent;
+import org.apache.commons.configuration.event.ConfigurationListener;
 
+import javax.xml.bind.Marshaller;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.*;
@@ -32,6 +35,11 @@ public class ConfigurationManager {
      */
     private PropertiesConfiguration mConfiguration;
 
+    private Runnable mOnReload;
+
+    public void setOnConfigurationReload(Runnable runnable) {
+        mOnReload = runnable;
+    }
 
     /** Function that loads the configuration file
      *
@@ -73,9 +81,10 @@ public class ConfigurationManager {
                         for (WatchEvent<?> event : wk.pollEvents()) {
                             final Path changed = (Path) event.context();
                             if (changed.endsWith("test.txt")) {
-                                Thread.sleep(100);
-                                mConfiguration.load("test.txt");
+                                mConfiguration.refresh();
                                 Log.d(TAG, "Reloaded 'test.txt'.");
+                                if(mOnReload != null)
+                                    mOnReload.run();
                             }
                         }
                         boolean valid = wk.reset();
@@ -112,18 +121,6 @@ public class ConfigurationManager {
             }
         }
         return isValid;
-    }
-
-    /**
-     * Refreshes the configuration file
-     */
-    public void refresh(){
-        try {
-            mConfiguration.refresh();
-            Log.d(TAG, "Configuration refreshed.");
-        } catch (ConfigurationException e) {
-            Log.e(TAG, e.getMessage());
-        }
     }
 
     /** Function that creates a new empty configuration file, the file still needs to be populated

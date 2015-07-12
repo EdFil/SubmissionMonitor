@@ -50,9 +50,7 @@ public class WatchDir {
         isRecursive = recursive;
 
         if (recursive) {
-            System.out.format("Scanning %s ...\n", dir);
             registerAll(dir);
-            System.out.println("Done.");
         } else {
             register(dir);
         }
@@ -133,7 +131,7 @@ public class WatchDir {
                     File file = child.toFile();
                     if(!file.getName().startsWith(".")) {
                         Log.d(TAG, "NEW FILE " + file);
-                        FTPManager.getInstance().sendFile(file);
+                        FTPManager.getInstance().sendFile(file, mRootDir.relativize(child).toString());
                     }
                 }
 
